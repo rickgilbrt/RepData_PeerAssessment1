@@ -1,10 +1,5 @@
----
-title: "Reproducible Research: Peer Assessment 1"
-author: "Rick Gilbert"
-output: 
-  html_document:
-    keep_md: true
----
+# Reproducible Research: Peer Assessment 1
+Rick Gilbert  
 
 ### Introduction
 
@@ -14,7 +9,8 @@ output:
 Dataset for this course is located on the course website:  
 [Activity Monitoring Data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip)
 
-```{r loadData}
+
+```r
 # Download and/or extract
 # First check for existence of data file or zipped archive. Unzip existing
 # archive or download and unzip archive if necessary. Files are downloaded 
@@ -38,12 +34,12 @@ df <- read.csv(dataFile,header=TRUE,sep=",",stringsAsFactors = FALSE)
 df <- subset(df,!is.na(df$steps),1:3)
 ## Convert data string to R date
 df$date <- as.Date(df$date,"%Y-%m-%d")
-
 ```
 
 ### Mean steps per day
 
-```{r byDayStats}
+
+```r
  pkgLoad <- function(x) # a function to load an R package, downloading 
                         # and installing it if necessary.
   {
@@ -57,10 +53,39 @@ df$date <- as.Date(df$date,"%Y-%m-%d")
     # library(x)
   }
 pkgLoad("dplyr")
+```
+
+```
+## Loading required package: dplyr
+## 
+## Attaching package: 'dplyr'
+## 
+## The following object is masked from 'package:stats':
+## 
+##     filter
+## 
+## The following objects are masked from 'package:base':
+## 
+##     intersect, setdiff, setequal, union
+```
+
+```r
 pkgLoad("lubridate")
+```
+
+```
+## Loading required package: lubridate
+```
+
+```r
 pkgLoad("lattice")
+```
 
+```
+## Loading required package: lattice
+```
 
+```r
 dfByDate <- df %>% group_by(date) %>% 
         summarize( sum = sum(steps))
 names(dfByDate) <- c("date", "totalSteps")
@@ -68,7 +93,7 @@ meanDailySteps <- mean(dfByDate$totalSteps)
 medianDailySteps <- median(dfByDate$totalSteps)
 
 ## Next, the histogram, using the Freedman-Diaconis rule.
-## The bin-width is set to h=2∗IQR∗n−1/3, so # bins = (max-min)/h.
+## The bin-width is set to h=2*IQR*n-1/3, so # bins = (max-min)/h.
 hist(dfByDate$totalSteps,
      breaks = "FD",
      col = "salmon",
@@ -79,14 +104,15 @@ hist(dfByDate$totalSteps,
         text(100, 14, paste("Mean (solid) =",round(meanDailySteps, 1),
                             "\nMedian (dashed) =",round(medianDailySteps,0)),
              pos = 4)
-
 ```
+
+![](PA1_template_files/figure-html/byDayStats-1.png) 
 
 
 ### Average daily pattern
 
-```{r avgDailyPattern}
 
+```r
 dfDaily <- df %>% group_by(interval) %>% summarize( avgSteps = mean(steps))
 ## But we need the interval converted to time for proper charting, so
 dfDaily$time <- strptime(sprintf("%04d",dfDaily$interval),format="%H%M")
@@ -109,11 +135,12 @@ plot(dfDaily$time,dfDaily$avgSteps,
                    "\n occurs at ",
                    timeMaxSteps),
              pos = 4)
-
 ```
+
+![](PA1_template_files/figure-html/avgDailyPattern-1.png) 
   
 - The interval with the highest step count average over a day begins at
-`r timeMaxSteps` at a value of `r maxSteps`.  
+0835 at a value of 206.2.  
 
 ### Imputing missing values
 #### Strategy discussion
@@ -151,7 +178,8 @@ So... in our case, what is the pattern of missing values?  I need to reload
 the original data, since I purged the NA's in an early step.  I'll change 
 the date strings to dates.
 
-```{r reload}
+
+```r
 df2 <- read.csv(dataFile,
                 header=TRUE,
                 sep=",",
@@ -159,18 +187,32 @@ df2 <- read.csv(dataFile,
                 na.strings="NA")
 df2 <- tbl_df(df2)
 df2$date <- as.Date(df2$date,"%Y-%m-%d")
-
 ```
 Now let's look at patterns of missing values.  First I extract the 
 incomplete cases from the data and look for a pattern.
 
-``` {r Incomplete}
+
+```r
 df3 <- df2[!complete.cases(df2),]
 df3ByDate <- df3 %>% count(date)
 missDateCount <- nrow(df3ByDate)
 df3ByDate
 ```
-OK, there are `r missDateCount` days with missing data, and each day is 
+
+```
+## Source: local data frame [8 x 2]
+## 
+##         date   n
+## 1 2012-10-01 288
+## 2 2012-10-08 288
+## 3 2012-11-01 288
+## 4 2012-11-04 288
+## 5 2012-11-09 288
+## 6 2012-11-10 288
+## 7 2012-11-14 288
+## 8 2012-11-30 288
+```
+OK, there are 8 days with missing data, and each day is 
 missing step values for all 288 intervals. So we have the case of whole days
 and only whole days having missing data. Possible imputation options are
 1) avg for the interval over all days
@@ -188,25 +230,52 @@ we can merge the averages with the base set.  Finally, we replace NA's in the
 base with values from the average column. In know there's a better way to do
 this, but I don't know the syntax for it at the moment.
 
-```{r weekdayAvgCalc}
+
+```r
 df2$dow <- wday(df2$date)
 dfDow <- df2[!is.na(df2$steps),1:4] %>% group_by(dow,interval) %>% summarize( avgSteps = round(mean(steps),1))
 df5 <- (merge(df2,dfDow,by = c("dow","interval"),all.x=TRUE))
 df5 <- arrange(df5,date,interval)  # because MERGE changes the order
 df5$steps[is.na(df5$steps)] <- df5$avgSteps
+```
+
+```
+## Warning in df5$steps[is.na(df5$steps)] <- df5$avgSteps: number of items to
+## replace is not a multiple of replacement length
+```
+
+```r
 df5 <- subset(df5,,c("date","dow","interval","steps")) 
 ```
 
-```{r imputedData}
+
+```r
 Table2 <- df5[df5$interval==1835,1:4]
 head(Table2,12)
+```
+
+```
+##            date dow interval steps
+## 224  2012-10-01   2     1835  92.3
+## 512  2012-10-02   3     1835   0.0
+## 800  2012-10-03   4     1835  26.0
+## 1088 2012-10-04   5     1835   0.0
+## 1376 2012-10-05   6     1835  69.0
+## 1664 2012-10-06   7     1835 437.0
+## 1952 2012-10-07   1     1835  80.0
+## 2240 2012-10-08   2     1835  84.7
+## 2528 2012-10-09   3     1835  61.0
+## 2816 2012-10-10   4     1835  63.0
+## 3104 2012-10-11   5     1835  22.0
+## 3392 2012-10-12   6     1835 506.0
 ```
 The table extract above shows imputed values for records 1 and 8 from
 2012-10-1 and 2013-10-08.  The single decimal place was retained in the
 averages to make the imputed values easier to spot.
 
 Now to build the data set for the histogram using the modified data set.
-```{r hist2}
+
+```r
 dfByDate5 <- df5 %>% group_by(date) %>% 
         summarize( sum = sum(steps))
 names(dfByDate5) <- c("date", "totalSteps")
@@ -214,7 +283,7 @@ meanDailySteps5 <- mean(dfByDate5$totalSteps)
 medianDailySteps5 <- median(dfByDate5$totalSteps)
 
 ## Next, the histogram, using the Freedman-Diaconis rule.
-## The bin-width is set to h=2∗IQR∗n−1/3, so # bins = (max-min)/h.
+## The bin-width is set to h=2*IQR*n-1/3, so # bins = (max-min)/h.
 hist(dfByDate5$totalSteps,
      breaks = "FD",
      col = "lightskyblue",
@@ -226,9 +295,12 @@ hist(dfByDate5$totalSteps,
                             "\nMedian (dashed) =",round(medianDailySteps5,0)),
              pos = 4)
 ```
+
+![](PA1_template_files/figure-html/hist2-1.png) 
   
 ##### OK, shapewise it's a close call.  Let's see the earlier histogram again...
-```{r histRedux}
+
+```r
 hist(dfByDate$totalSteps,
      breaks = "FD",
      col = "salmon",
@@ -239,8 +311,9 @@ hist(dfByDate$totalSteps,
         text(100, 14, paste("Mean (solid) =",round(meanDailySteps, 1),
                             "\nMedian (dashed) =",round(medianDailySteps,0)),
              pos = 4)
-
 ```
+
+![](PA1_template_files/figure-html/histRedux-1.png) 
   
 #### Conclusions about imputed data.
 The median value was unaffected by the inclusion of the imputed values, and 
@@ -255,7 +328,8 @@ We already have day of the week in the df5 set, so we can build the required
 variable to distinguish weekend from weekday.  The weekday function has a
 Sunday = 1 convention, so we'll classify 1 and 7 as weekend and 2-6 as weekday.
 
-```{r weekend}
+
+```r
 df5$dayType[df5$dow %in% c(1,7)] <- "weekend"
 df5$dayType[df5$dow %in% c(2:6)] <- "weekday"
 df5$dayType <- as.factor(df5$dayType)
@@ -274,8 +348,8 @@ xlabl[18]<-c(" ")
 ```
 And now we need a panel plot of the two types days...
 
-```{r panelplot}
 
+```r
 xyplot(avgSteps ~ timex | dayType
        ,data=dfDaily2
        ,type="l"
@@ -285,9 +359,9 @@ xyplot(avgSteps ~ timex | dayType
        ,ylab="number of steps"
        ##,axis(1, at = xval, labels = xlabl)
        ,layout=c(1,2))
-
-
 ```
+
+![](PA1_template_files/figure-html/panelplot-1.png) 
   
 #### Results
 There is an apparent difference in the activity profiles between weekend
