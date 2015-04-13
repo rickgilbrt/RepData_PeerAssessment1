@@ -1,5 +1,5 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
+title: "Reproducible Research: Peer Assessment 1 (repdata-013)"
 author: "Rick Gilbert"
 output: 
   html_document:
@@ -7,7 +7,7 @@ output:
 ---
 
 ### Introduction
-
+This paper  will explore data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.    
 
 ### Loading and preprocessing data set
   
@@ -19,7 +19,7 @@ Dataset for this course is located on the course website:
 # First check for existence of data file or zipped archive. Unzip existing
 # archive or download and unzip archive if necessary. Files are downloaded 
 # to working directory.
-urlSource <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+urlSource <- "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 zipFile <- "repdata_data_activity.zip"
 dataFile <-"activity.csv"
 
@@ -44,8 +44,8 @@ df$date <- as.Date(df$date,"%Y-%m-%d")
 ### Mean steps per day
 
 ```{r byDayStats}
- pkgLoad <- function(x) # a function to load an R package, downloading 
-                        # and installing it if necessary.
+pkgLoad <- function(x)  # a utility function to load an R package, 
+                        # downloading and installing it if necessary.
   {
     if (!require(x,character.only = TRUE))
     {
@@ -55,7 +55,7 @@ df$date <- as.Date(df$date,"%Y-%m-%d")
     # now load library and suppress warnings
     # suppressPackageStartupMessages(library(x))
     # library(x)
-  }
+}
 pkgLoad("dplyr")
 pkgLoad("lubridate")
 pkgLoad("lattice")
@@ -68,7 +68,7 @@ meanDailySteps <- mean(dfByDate$totalSteps)
 medianDailySteps <- median(dfByDate$totalSteps)
 
 ## Next, the histogram, using the Freedman-Diaconis rule.
-## The bin-width is set to h=2∗IQR∗n−1/3, so # bins = (max-min)/h.
+## The bin-width is set to h=2bIQRbnb1/3, so # bins = (max-min)/h.
 hist(dfByDate$totalSteps,
      breaks = "FD",
      col = "salmon",
@@ -117,38 +117,40 @@ plot(dfDaily$time,dfDaily$avgSteps,
 
 ### Imputing missing values
 #### Strategy discussion
-One cannot simply choose any value to replace a missing value.  There should 
-be some rationale underling the value(s) chosen.  The number of missing 
+One cannot simply choose any value to replace a missing value. There should 
+be some rationale underlying the value(s) chosen. The number of missing 
 values and the pattern of missing values within the dataset, as well as the
 questions to be addressed with the data need to be considered in choosing 
 how to proceed.  
 
 For example, if a single value is missing, one might choose the average of 
-the prior and successive values.  These are 5 "minute snapshots" of 
+the prior and successive values. These are 5-minute "snapshots" of 
 activity, and a transition from one level to another is not an unreasonable
-assumption.  Extend that logic to a string of 4 or 5 missing values and that
-position is no longer tenable.  
+assumption. But extend that logic to a string of 4 or 5 missing values and that
+position of averaging prior and successive values is no longer tenable.  
 
 Another possible choice is to replace missing value with the average for the
 corresponding interval on all days when the value is not missing, for example,
 If a value is missing for 0835 on 2007-10-12, and the average of the
 non-missing values for 0835 on all other days is 56, then replace the missing
 value at 0835 on 2007-10-12 with a value of 56. This approach assumes that any
-missing interval is like the average of the same interval over all days, without regard for 
+missing interval is like the average of the same interval over all days, without
+regard for:   
+  
 1 activity in a prior or succeeding interval 
 2 differences attributable to day of week or day of month
 3 any trend differences over time
 
-But what about the case when whole days of data are missing?  Is day of the
-week a significant factor for steps?  If so, one might replace the missing
+But what about the case when whole days of data are missing? Is day of the
+week a significant factor for steps? If so, one might replace the missing
 values with the average for the corresponding intervals on the corresponding
 days of the week. With this approach, there are similar concerns regarding
 trends or day of the month.
 
 
 #### Analysis  
-So... in our case, what is the pattern of missing values?  I need to reload
-the original data, since I purged the NA's in an early step.  I'll change 
+So... in our case, what is the pattern of missing values? I need to reload
+the original data, since I purged the NA's in an early step. I'll change 
 the date strings to dates.
 
 ```{r reload}
@@ -161,7 +163,7 @@ df2 <- tbl_df(df2)
 df2$date <- as.Date(df2$date,"%Y-%m-%d")
 
 ```
-Now let's look at patterns of missing values.  First I extract the 
+Now let's look at patterns of missing values. First I extract the 
 incomplete cases from the data and look for a pattern.
 
 ``` {r Incomplete}
@@ -173,19 +175,20 @@ df3ByDate
 OK, there are `r missDateCount` days with missing data, and each day is 
 missing step values for all 288 intervals. So we have the case of whole days
 and only whole days having missing data. Possible imputation options are
+  
 1) avg for the interval over all days
 2) avg for the interval for all days that are the same day of the week
 3) avg for the interval for all days that are the same day of the month
 4) one of the above plus a bias for any observed trend over time.
-
+  
 Dealing with #4 is something I don't want to do in this exercise, and #3 
 has the possibility of lacking data for the same day in both months, since
 there are only two months of data.  Option #1 would be the easier of the
-remaining two, but I want to play with option #2.  To do that, we need avg
-steps per day for each interval by day of the week.  So then we need to extract 
+remaining two, but I want to play with option #2. To do that, we need avg
+steps per day for each interval by day of the week. So then we need to extract 
 day of week (dow) from the date values and compute the proper averages. Then
-we can merge the averages with the base set.  Finally, we replace NA's in the 
-base with values from the average column. In know there's a better way to do
+we can merge the averages with the base set. Finally, we replace NA's in the 
+base with values from the average column. I know there's a better way to do
 this, but I don't know the syntax for it at the moment.
 
 ```{r weekdayAvgCalc}
@@ -202,7 +205,7 @@ Table2 <- df5[df5$interval==1835,1:4]
 head(Table2,12)
 ```
 The table extract above shows imputed values for records 1 and 8 from
-2012-10-1 and 2013-10-08.  The single decimal place was retained in the
+2012-10-1 and 2013-10-08. The single decimal place was retained in the
 averages to make the imputed values easier to spot.
 
 Now to build the data set for the histogram using the modified data set.
@@ -214,7 +217,7 @@ meanDailySteps5 <- mean(dfByDate5$totalSteps)
 medianDailySteps5 <- median(dfByDate5$totalSteps)
 
 ## Next, the histogram, using the Freedman-Diaconis rule.
-## The bin-width is set to h=2∗IQR∗n−1/3, so # bins = (max-min)/h.
+## The bin-width is set to h=2bIQRbnb1/3, so # bins = (max-min)/h.
 hist(dfByDate5$totalSteps,
      breaks = "FD",
      col = "lightskyblue",
@@ -252,7 +255,7 @@ value cells with mean values.
 
 ### Are there differences in activity patterns between weekdays and weekends?
 We already have day of the week in the df5 set, so we can build the required
-variable to distinguish weekend from weekday.  The weekday function has a
+variable to distinguish weekend from weekday. The weekday function has a
 Sunday = 1 convention, so we'll classify 1 and 7 as weekend and 2-6 as weekday.
 
 ```{r weekend}
@@ -291,9 +294,9 @@ xyplot(avgSteps ~ timex | dayType
   
 #### Results
 There is an apparent difference in the activity profiles between weekend
-days and weekdays.   Both charts have similar peak periods in the range
+days and weekdays. Both charts have similar peak periods in the range
 from 8:00 to 9:30, but weekday activity begins earlier in the day 
-(about 5:30) and is almost ended by 20:00.  In contrast, weekend activity
+(about 5:30) and is almost ended by 20:00. In contrast, weekend activity
 levels don't rise until about 07:00 and end around 21:30.
   
 Activity after the peak morning period appears generally higher on the
